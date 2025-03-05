@@ -1,0 +1,16 @@
+{
+  "env": {
+    "browser": false,
+    "node": true,
+    "es6": true
+  },
+  "extends":  [
+    "standard"
+  ],
+  "rules": {
+    "quote-props": "off",
+    "indent": ["error", 2, { "SwitchCase": 1 }],
+    "no-console": "off"
+  }
+}
+

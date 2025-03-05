@@ -1,0 +1,1 @@
+electron-icon-builder --input=./app-mac-1024x1024.png --output=./ouput

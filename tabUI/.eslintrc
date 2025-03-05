@@ -1,0 +1,48 @@
+{
+  "env": {
+    "browser": true,
+    "node": true,
+    "es6": true
+  },
+  "parser": "@babel/eslint-parser",
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "plugins": [
+    "react",
+    "react-hooks"
+  ],
+  "extends":  [
+    "standard",
+    "standard-react",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended"
+  ],
+  "rules": {
+    "quote-props": "off",
+    "indent": ["error", 2, { "SwitchCase": 1 }],
+    "no-console": "off",
+    "jsx-quotes": ["error", "prefer-single"],
+    "react/sort-prop-types": [
+      "error", {
+        "ignoreCase": true,
+        "noSortAlphabetically": true
+      }
+    ],
+    "react/sort-default-props": "error",
+    "react/jsx-sort-props": "off",
+    "react/jsx-uses-react": "off",
+    "react/react-in-jsx-scope": "off",
+    "react/display-name": "off"
+  },
+  "settings": {
+    "react": {
+      "version": "18.2.0"
+    }
+  }
+}
+
