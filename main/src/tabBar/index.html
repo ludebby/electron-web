@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+    <link href="./style.css" rel="stylesheet">
+    <title>Test Electron</title>
+  </head>
+  <body>
+    <div
+      id='container'
+    >
+    <button
+      id='tab1'
+    >
+        my
+    </button>
+    <button
+      id='tab2'
+    >
+      bookshop
+    </button>
+</div>
+    <!-- You can also require other files to run in this process -->
+    <script src="./tabBar.js"></script>
+  </body>
+</html>

@@ -12,6 +12,10 @@ console.log('process.contextIsolated:', process.contextIsolated)
 // 控制畫面端可以傳遞給main.js的訊息
 contextBridge.exposeInMainWorld(
   'api', {
-    switchTab: (tab) => ipcRenderer.send('switch-tab', tab)
+    switchTab: (tab) => ipcRenderer.send('switch-tab', tab),
+    selectEntrance: (vendor) => ipcRenderer.send('select-entrance', vendor),
+    onTabActive: (func) => {
+      ipcRenderer.on('tab-active', (event, ...args) => func(...args))
+    }
   }
 )

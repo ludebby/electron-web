@@ -17,7 +17,7 @@ the only way to expose APIs from your preload script is through the contextBridg
 
 // web端(renderer process)載入前會執行此preload.js內容
 
-console.log('tab1 preload.js')
+console.log('tab2 preload.js')
 console.log('process.type:', process.type)
 console.log('process.contextIsolated:', process.contextIsolated)
 
@@ -25,9 +25,9 @@ window.onload = () => {
   // MessagePorts機制
   const { port1, port2 } = new MessageChannel()
   // 傳port1給web
-  window.postMessage('[MessagePorts][tab1]init msg for web', '*', [port1])
+  window.postMessage('[MessagePorts][tab2]init msg for web', '*', [port1])
   // 傳port2給main
-  ipcRenderer.postMessage('MessagePorts-tab1', '[MessagePorts][tab1]init msg for main', [port2])
+  ipcRenderer.postMessage('MessagePorts-tab2', '[MessagePorts][tab2]init msg for main', [port2])
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -119,6 +119,9 @@ contextBridge.exposeInMainWorld(
     },
     getEnvVersionInfo: () => {
       return { chrome: process.versions.chrome, electron: process.versions.electron }
+    },
+    onSelectEntrance: (func) => {
+      ipcRenderer.on('tab-active', (event, ...args) => func(...args))
     }
   }
 )

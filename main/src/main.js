@@ -1,20 +1,3 @@
-// Modules to control application life and create native browser window
-/**
-The main process, commonly a file named main.js, is the entry point to every Electron app.
-It controls the life of the app, from open to close.
-It also manages native elements such as the Menu, Menu Bar, Dock, Tray, etc.
-The main process is responsible for creating each new renderer process in the app.
-The full Node API is built in.
-
-In Chromium, this process is referred to as the "browser process".
-It is renamed in Electron to avoid confusion with renderer processes.
-
-The main process' primary purpose is to create and manage application windows with the BrowserWindow module.
-
-Each instance of the BrowserWindow class creates an application window that loads a web page in a separate renderer process.
-You can interact with this web content from the main process using the window's webContents object.
- */
-
 const { app, BrowserWindow, WebContentsView, dialog, globalShortcut } = require('electron')
 const path = require('path')
 const fs = require('fs')
@@ -97,82 +80,95 @@ logger.log('debug', 'iconPath:%s', iconPath)
 
 // --Electron初始---------------------- //
 
-let tabUIWindow
-let tab1View, tab2View
+let mainWindow
+let myView, bookshopView, entranceView
 
 function createWindow () {
-  // Create the browser window. 建立chrome瀏覽器
-  logger.log('debug', 'createWindow')
-  tabUIWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 800, // 寬度
     height: 650, // 高度
     icon: iconPath,
     webPreferences: {
       // web層界接,封裝api供web層使用
-      preload: path.join(__dirname, '/preload/tabUI.js')
+      preload: path.join(__dirname, '/preload/main.js')
     }
   })
+  mainWindow.loadFile('./src/tabBar/index.html')
+  mainWindow.webContents.openDevTools({ mode: 'detach', title: 'main' })
 
   if (devMode) {
     // 開發階段直接與 React 連線
-    // 載入 tab UI
-    tabUIWindow.loadURL('http://localhost:2000/')
+    // 載入 tabBar
+    mainWindow.loadFile('./src/tabBar/index.html')
     // Open the DevTools.
-    tabUIWindow.webContents.openDevTools({ mode: 'detach', title: 'tabUI' })
+    mainWindow.webContents.openDevTools({ mode: 'detach', title: 'main' })
   } else {
+    mainWindow.loadFile('./src/tabBar/index.html')
     // 產品階段直接讀取 React 打包好的
-    tabUIWindow.loadFile('web/index.html')
+    mainWindow.loadFile(path.join(__dirname, '../../bookshop/dist/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../../my/dist/index.html'))
     // 正式版不開啟開發者工具
-    // tabUIWindow.webContents.openDevTools()
+    // mainWindow.webContents.openDevTools()
   }
 
   // ------------------------------------ //
   // WebContentsView測試
   // 創建 tab1 view
-  tab1View = new WebContentsView({
+  myView = new WebContentsView({
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '/preload/tab1.js')
+      preload: path.join(__dirname, '/preload/my.js')
     }
   })
-  tab1View.webContents.loadURL('http://localhost:2001/')
-  tab1View.webContents.openDevTools({ mode: 'detach', title: 'tab1' })
+  myView.webContents.loadURL('http://localhost:8084')
+  // myView.webContents.openDevTools({ mode: 'detach', title: 'my' })
 
   // 創建 tab2 view
-  tab2View = new WebContentsView({
+  bookshopView = new WebContentsView({
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '/preload/tab2.js')
+      preload: path.join(__dirname, '/preload/bookshop.js')
     }
   })
-  tab2View.webContents.loadURL('http://localhost:2002/')
-  tab2View.webContents.openDevTools({ mode: 'detach', title: 'tab2' })
+  bookshopView.webContents.loadURL('http://localhost:7859')
+  // bookshopView.webContents.openDevTools({ mode: 'detach', title: 'bookshop' })
+
+  // 創建 tab2 view
+  entranceView = new WebContentsView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '/preload/entrance.js')
+    }
+  })
+  entranceView.webContents.loadURL('  http://localhost:8084/entrance.html')
 
   // 加入 tab1, tab2 到主視窗
-  tabUIWindow.contentView.addChildView(tab1View)
-  tabUIWindow.contentView.addChildView(tab2View)
+  mainWindow.contentView.addChildView(myView)
+  mainWindow.contentView.addChildView(bookshopView)
+  mainWindow.contentView.addChildView(entranceView)
 
-  global.share.tabUIWindow = tabUIWindow
-  global.share.tab1View = tab1View
-  global.share.tab2View = tab2View
-
+  global.share.mainWindow = mainWindow
+  global.share.myView = myView
+  global.share.bookshopView = bookshopView
+  global.share.entranceView = entranceView
   // 設定初始大小
-  updateContentViewSize('tab1') // 預設顯示 tab1
+  updateContentViewSize('my')
 
-  tabUIWindow.on('resize', () => {
+  mainWindow.on('resize', () => {
     updateContentViewSize() // 確保視窗大小變更時同步更新
   })
 
   // ------------------------------------ //
 
   // 攔截關閉事件
-  tabUIWindow.on('close', (event) => {
+  mainWindow.on('close', (event) => {
     event.preventDefault() // 阻止視窗自動關閉
 
     // 顯示確認對話框
-    const choice = dialog.showMessageBoxSync(tabUIWindow, {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
       type: 'warning',
       title: '關閉程式',
       message: '確認關閉目前程式?',
@@ -185,35 +181,56 @@ function createWindow () {
 
     // 如果使用者選擇 "是"，則允許視窗關閉
     if (choice === 0) {
-      tabUIWindow.destroy()
+      mainWindow.destroy()
       app.quit()
     }
   })
 
-  tabUIWindow.webContents.on('did-finish-load', function () {
+  mainWindow.webContents.on('did-finish-load', function () {
     logger.log('debug', 'did-finish-load')
     // 預設顯示 tab1
-    tab1View.webContents.send('tab-active', true)
+    // myView.webContents.send('tab-active', true)
     // main to web主動訊息
-    tab1View.webContents.send('main-to-web-send-channel', 'main-to-web-send-msg-tab1')
-    tab2View.webContents.send('main-to-web-send-channel', 'main-to-web-send-msg-tab2')
+    myView.webContents.send('main-to-web-send-channel', 'main-to-web-send-msg-tab1')
+    bookshopView.webContents.send('main-to-web-send-channel', 'main-to-web-send-msg-tab2')
   })
 }
 
 // 更新 WebContentsView 的大小與可見性
-function updateContentViewSize (activeTab = 'tab1') {
-  if (!tabUIWindow || !tab1View || !tab2View) return
+function updateContentViewSize (activeTab = 'my') {
+  if (!mainWindow || !myView || !bookshopView) return
 
-  const bounds = tabUIWindow.getBounds()
+  const bounds = mainWindow.getBounds()
   const contentBounds = { x: 0, y: 50, width: bounds.width - 25, height: bounds.height - 150 }
 
-  if (activeTab === 'tab1') {
-    tab1View.setBounds(contentBounds)
-    tab2View.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
-  } else {
-    tab2View.setBounds(contentBounds)
-    tab1View.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content1
+  switch (activeTab) {
+    case 'my':
+      myView.setBounds(contentBounds)
+      bookshopView.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
+      entranceView.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
+      break
+    case 'bookshop':
+      bookshopView.setBounds(contentBounds)
+      myView.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
+      entranceView.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
+      break
+    case 'entrance':
+      entranceView.setBounds(contentBounds)
+      myView.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
+      bookshopView.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
+      break
+    default:
   }
+
+  // if (activeTab === 'my') {
+  //   myView.setBounds(contentBounds)
+  //   bookshopView.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
+  // } else if (activeTab === 'entrance') {
+  //   entranceView.setBounds(contentBounds)
+  // } else {
+  //   bookshopView.setBounds(contentBounds)
+  //   myView.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content1
+  // }
 }
 global.share.updateContentViewSize = updateContentViewSize
 
@@ -251,13 +268,7 @@ logger.log('info', 'app start')
 
 // --處理來自畫面端的訊息---------------------- //
 
-require('./ipc/tabUI.js')
-require('./ipc/sharedState.js')
-require('./ipc/file.js')
-require('./ipc/msg.js')
-require('./ipc/test.js')
-require('./ipc/net.js')
-require('./ipc/sqlite.js')
+require('./ipc/main.js')
 
 // ------------------------ //
 /*
