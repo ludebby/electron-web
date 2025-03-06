@@ -5,33 +5,37 @@ const common = require('./common.js')
 
 const appBaseDir = path.resolve(__dirname, '..')
 
-// 更新web檔案
-common.updateWeb(appBaseDir)
+// 從各web程式包抓取其編譯程式碼
+common.buildAndCopyWebBuild(appBaseDir).then(() => {
+  // 切換env.json檔內的mode為production,再進行打包
+  common.setEnvMode('production', appBaseDir)
 
-// 切換env.mode為production
-common.setEnvMode('production', appBaseDir)
+  console.log('[ALL]prepare build')
 
-builder.build({
+  builder.build({
 
-  projectDir: path.resolve(appBaseDir), // 專案路徑
+    projectDir: path.resolve(appBaseDir), // 專案路徑
 
-  win: ['nsis', 'portable'], // nsis, portable
-  config: {
-    'appId': common.appId,
-    'productName': common.productName, // 應用程式名稱 ( 顯示在應用程式與功能 )
-    'directories': {
-      'output': 'build/win'
-    },
-    'win': {
-      'icon': path.resolve(appBaseDir, 'icon', 'app.ico')
+    win: ['nsis', 'portable'], // nsis, portable
+    config: {
+      'appId': common.appId,
+      'productName': common.productName, // 應用程式名稱 ( 顯示在應用程式與功能 )
+      'directories': {
+        'output': 'build/win'
+      },
+      'win': {
+        'icon': path.resolve(appBaseDir, 'icon', 'app.ico')
+      }
     }
-  }
+  })
+    .then(
+      data => {
+        console.log(data)
+        // 切換env.mode為develop
+        common.setEnvMode('develop', appBaseDir)
+
+        console.log('[ALL]build ok')
+      },
+      err => console.error(err)
+    )
 })
-  .then(
-    data => {
-      console.log(data)
-      // 切換env.mode為develop
-      common.setEnvMode('develop', appBaseDir)
-    },
-    err => console.error(err)
-  )

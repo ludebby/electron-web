@@ -22,8 +22,10 @@
     "eslint-plugin-promise": "4.3.1",
     "express": "4.21.2",
     "i18next": "23.4.6",
+    "keytar": "7.9.0",
     "mime-types": "2.1.35",
     "music-metadata": "10.9.0",
+    "realm": "20.1.0",
     "sqlite3": "5.1.7",
     "winston": "3.17.0",
     "ws": "8.18.0"

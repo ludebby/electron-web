@@ -5,7 +5,7 @@ const logger = global.share.logger
 // electron ipc
 // channel,非同步訊息接收與回應
 ipcMain.on('web-to-main-send-channel', (event, args) => {
-  logger.log('debug', '[web-to-main-send-channel]Received %s from web', args.msg)
+  logger.log('info', '[web-to-main-send-channel]Received %s from web', args.msg)
   setTimeout(() => {
     event.reply('web-to-main-send-channel', 'web-to-main-send-reply-msg')
   }, args.targetTime)
@@ -13,7 +13,7 @@ ipcMain.on('web-to-main-send-channel', (event, args) => {
 
 // channel,同步訊息接收與回應
 ipcMain.on('web-to-main-sendSync-channel', (event, args) => {
-  logger.log('debug', '[web-to-main-sendSync-channel]Received %s from web', args.msg)
+  logger.log('info', '[web-to-main-sendSync-channel]Received %s from web', args.msg)
   setTimeout(() => {
     event.returnValue = 'web-to-main-sendSync-reply-msg'
   }, args.targetTime)
@@ -21,7 +21,7 @@ ipcMain.on('web-to-main-sendSync-channel', (event, args) => {
 
 // channel,非同步訊息接收與回應
 ipcMain.handle('web-to-main-invoke-channel', async (event, args) => {
-  logger.log('debug', '[web-to-main-invoke-channel]Received %s from web', args.msg)
+  logger.log('info', '[web-to-main-invoke-channel]Received %s from web', args.msg)
   await new Promise((resolve) => setTimeout(resolve, args.targetTime))
   return 'web-to-main-invoke-reply-msg'
 })
@@ -39,7 +39,7 @@ ipcMain.on('MessagePorts-tab1', (e, msg) => {
   // prot2 receive message from port1
   messagePort.on('message', (event) => {
     // logger.log('debug', event)
-    logger.log('debug', '[MessagePorts][tab1][port2 get message from port1]:%s', event.data)
+    logger.log('info', '[MessagePorts][tab1][port2 get message from port1]:%s', event.data)
   })
 
   global.share.messagePortTab1 = messagePort
@@ -58,7 +58,7 @@ ipcMain.on('MessagePorts-tab2', (e, msg) => {
   // prot2 receive message from port1
   messagePort.on('message', (event) => {
     // logger.log('debug', event)
-    logger.log('debug', '[MessagePorts][tab2][port2 get message from port1]:%s', event.data)
+    logger.log('info', '[MessagePorts][tab2][port2 get message from port1]:%s', event.data)
   })
 
   global.share.messagePortTab2 = messagePort

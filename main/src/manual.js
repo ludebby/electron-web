@@ -28,7 +28,7 @@ function showManual (mainWindow) {
     alwaysOnTop: true
   })
   child.setMenuBarVisibility(false)
-  child.loadFile('./manual/index.html')
+  child.loadFile('./render/manual/index.html')
   global.share.manual.add(child)
 
   // 顯示視窗

@@ -176,6 +176,28 @@ export default class Main extends React.Component {
 
   // ----- 透過main process存取本地資料庫 ----- //
 
+  callRealmDbCreate = () => {
+    window.api.callRealmDbCreate().then(ret => console.log('callRealmDbCreate', ret))
+  }
+
+  callRealmDbRead = () => {
+    window.api.callRealmDbRead().then(user => console.log('callRealmDbRead', user))
+  }
+
+  callRealmDbUpdate = () => {
+    window.api.callRealmDbUpdate({ name: 'Alice', age: 32 }).then(ret => console.log('callRealmDbUpdate', ret))
+  }
+
+  callRealmDbDelete = () => {
+    window.api.callRealmDbDelete().then(ret => console.log('callRealmDbDelete', ret))
+  }
+
+  callRealmDbTypesTest = () => {
+    window.api.callRealmDbTypesTest()
+  }
+
+  // ----- 透過main process存取本地資料庫 ----- //
+
   callLocalDbSelect = () => {
     window.api.callLocalDbSelect().then(rows => console.log('callLocalDbSelect', rows))
   }
@@ -274,6 +296,14 @@ export default class Main extends React.Component {
         <Row style={rowStyle}><Col>websocket</Col></Row>
         <Row style={rowStyle}>
           <Col><Button variant='primary' onClick={this.sendMsgToMainByWebSocket}>sendMsgToMainByWebSocket</Button></Col>
+        </Row>
+        <Row style={rowStyle}><Col>realm db</Col></Row>
+        <Row style={rowStyle}>
+          <Col><Button variant='primary' onClick={this.callRealmDbCreate}>callRealmDbCreate</Button></Col>
+          <Col><Button variant='primary' onClick={this.callRealmDbRead}>callRealmDbRead</Button></Col>
+          <Col><Button variant='primary' onClick={this.callRealmDbUpdate}>callRealmDbUpdate</Button></Col>
+          <Col><Button variant='primary' onClick={this.callRealmDbDelete}>callRealmDbDelete</Button></Col>
+          <Col><Button variant='primary' onClick={this.callRealmDbTypesTest}>callRealmDbTypesTest</Button></Col>
         </Row>
         <Row style={rowStyle}><Col>sqlite</Col></Row>
         <Row style={rowStyle}>

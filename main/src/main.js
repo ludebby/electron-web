@@ -15,9 +15,13 @@ Each instance of the BrowserWindow class creates an application window that load
 You can interact with this web content from the main process using the window's webContents object.
  */
 
+const start = process.hrtime() // 開始計時
+
 const { app, BrowserWindow, WebContentsView, dialog, globalShortcut } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const keytar = require('keytar')
+const crypto = require('crypto')
 
 const icon = require('./icon.js')
 
@@ -41,6 +45,7 @@ https://www.electronjs.org/docs/latest/tutorial/asar-archives
 const userDataDir = app.getPath('userData')
 
 // 是否為開發模式
+// 根據env.json檔中的mode判斷要跑在develop或production模式
 const env = JSON.parse(fs.readFileSync(path.join(appBaseDir, 'env.json')))
 const devMode = (env.mode === 'develop')
 
@@ -80,6 +85,30 @@ global.share.userDataDir = userDataDir
 global.share.logger = logger
 global.share.manual = new Set()
 
+// --產生realm加密金鑰------------------------//
+const initRealmEncryptionKey = async () => {
+  const SERVICE_NAME = 'TestElectronReact2'
+  const ACCOUNT_NAME = 'realm_encryption_key'
+
+  // 檢查系統安全儲存是否已有金鑰
+  let realmEncryptionKey = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME)
+  if (!realmEncryptionKey) {
+    logger.log('info', '[realm]產生realm加密金鑰')
+    realmEncryptionKey = crypto.randomBytes(64).toString('hex')
+    // 存入系統安全儲存
+    await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, realmEncryptionKey)
+  } else {
+    logger.log('info', '[realm]使用之前產生的realm加密金鑰')
+  }
+  realmEncryptionKey = Buffer.from(realmEncryptionKey, 'hex')
+
+  global.share.realmEncryptionKey = realmEncryptionKey
+}
+
+initRealmEncryptionKey()
+
+// -------------------------------------//
+
 const menu = require('./menu.js')
 
 // 作業系統判斷
@@ -109,21 +138,16 @@ function createWindow () {
     icon: iconPath,
     webPreferences: {
       // web層界接,封裝api供web層使用
-      preload: path.join(__dirname, '/preload/tabUI.js')
+      preload: path.join(appBaseDir, '/render/preload/tabUI.js')
     }
   })
-
   if (devMode) {
-    // 開發階段直接與 React 連線
+    // [開發階段]直接與 tab UI dev server連線
     // 載入 tab UI
     tabUIWindow.loadURL('http://localhost:2000/')
-    // Open the DevTools.
-    tabUIWindow.webContents.openDevTools({ mode: 'detach', title: 'tabUI' })
   } else {
-    // 產品階段直接讀取 React 打包好的
-    tabUIWindow.loadFile('web/index.html')
-    // 正式版不開啟開發者工具
-    // tabUIWindow.webContents.openDevTools()
+    // [產品階段]載入 tab UI 編譯後的程式碼
+    tabUIWindow.loadFile('render/tabUI/index.html')
   }
 
   // ------------------------------------ //
@@ -133,21 +157,40 @@ function createWindow () {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '/preload/tab1.js')
+      preload: path.join(appBaseDir, '/render/preload/tab1.js')
     }
   })
+  if (devMode) {
+    // [開發階段]直接與 tab 1 dev server連線
   tab1View.webContents.loadURL('http://localhost:2001/')
-  tab1View.webContents.openDevTools({ mode: 'detach', title: 'tab1' })
+  } else {
+    // [產品階段]載入 tab 1 編譯後的程式碼
+    tab1View.webContents.loadFile('render/tab1/index.html')
+  }
 
   // 創建 tab2 view
   tab2View = new WebContentsView({
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '/preload/tab2.js')
+      preload: path.join(appBaseDir, '/render/preload/tab2.js')
     }
   })
+  if (devMode) {
+    // [開發階段]直接與 tab 2 dev server連線
   tab2View.webContents.loadURL('http://localhost:2002/')
+  } else {
+    // [產品階段]載入 tab 2 編譯後的程式碼
+    tab2View.webContents.loadFile('render/tab2/index.html')
+  }
+
+  // Open the DevTools.
+  if (devMode) {
+    tabUIWindow.webContents.openDevTools({ mode: 'detach', title: 'tabUI' })
+  } else {
+    // [產品階段]不開啟開發者工具
+  }
+  tab1View.webContents.openDevTools({ mode: 'detach', title: 'tab1' })
   tab2View.webContents.openDevTools({ mode: 'detach', title: 'tab2' })
 
   // 加入 tab1, tab2 到主視窗
@@ -258,6 +301,7 @@ require('./ipc/msg.js')
 require('./ipc/test.js')
 require('./ipc/net.js')
 require('./ipc/sqlite.js')
+require('./ipc/realm.js')
 
 // ------------------------ //
 /*
@@ -284,3 +328,6 @@ const callesm = async () => {
 }
 
 callesm()
+
+const end = process.hrtime(start) // 計算經過的時間
+logger.log('info', `程式初始化時間: ${end[0]}s ${end[1] / 1e6}ms`)
