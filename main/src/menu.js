@@ -5,6 +5,8 @@ const WebSocket = require('ws')
 
 const manual = require('./manual.js')
 
+const logger = global.share.logger
+
 function createMenu (dialog, isMacos, appBaseDir, devMode) {
   const menuTemplate = [
     {
@@ -151,6 +153,7 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
             if (c.isDevToolsOpened()) {
               c.closeDevTools()
             } else {
+              logger.log('debug', 'openDevTools tabUI')
               c.openDevTools({ mode: 'detach', title: 'tabUI' })
             }
           }
@@ -162,6 +165,7 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
             if (c.isDevToolsOpened()) {
               c.closeDevTools()
             } else {
+              logger.log('debug', 'openDevTools tab1')
               c.openDevTools({ mode: 'detach', title: 'tab1' })
             }
           }
@@ -173,6 +177,7 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
             if (c.isDevToolsOpened()) {
               c.closeDevTools()
             } else {
+              logger.log('debug', 'openDevTools tab2')
               c.openDevTools({ mode: 'detach', title: 'tab2' })
             }
           }

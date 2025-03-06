@@ -48,6 +48,7 @@ const userDataDir = app.getPath('userData')
 // 根據env.json檔中的mode判斷要跑在develop或production模式
 const env = JSON.parse(fs.readFileSync(path.join(appBaseDir, 'env.json')))
 const devMode = (env.mode === 'develop')
+const testMainOnly = false
 
 // --logging模組----------------------//
 const initLogger = require('./logging.js')
@@ -85,8 +86,10 @@ global.share.userDataDir = userDataDir
 global.share.logger = logger
 global.share.manual = new Set()
 
-// --產生realm加密金鑰------------------------//
-const initRealmEncryptionKey = async () => {
+// --realm db初始化------------------------//
+const realmUtil = require('./realmUtil.js')
+const initRealmDB = async () => {
+  // 產生realm加密金鑰
   const SERVICE_NAME = 'TestElectronReact2'
   const ACCOUNT_NAME = 'realm_encryption_key'
 
@@ -102,10 +105,13 @@ const initRealmEncryptionKey = async () => {
   }
   realmEncryptionKey = Buffer.from(realmEncryptionKey, 'hex')
 
-  global.share.realmEncryptionKey = realmEncryptionKey
+  const db = await realmUtil.RealmDB.build(realmEncryptionKey)
+
+  global.share.db = db
+  global.share.realm = db.realm
 }
 
-initRealmEncryptionKey()
+initRealmDB()
 
 // -------------------------------------//
 
@@ -141,7 +147,7 @@ function createWindow () {
       preload: path.join(appBaseDir, '/render/preload/tabUI.js')
     }
   })
-  if (devMode) {
+  if (devMode && !testMainOnly) {
     // [開發階段]直接與 tab UI dev server連線
     // 載入 tab UI
     tabUIWindow.loadURL('http://localhost:2000/')
@@ -160,7 +166,7 @@ function createWindow () {
       preload: path.join(appBaseDir, '/render/preload/tab1.js')
     }
   })
-  if (devMode) {
+  if (devMode && !testMainOnly) {
     // [開發階段]直接與 tab 1 dev server連線
   tab1View.webContents.loadURL('http://localhost:2001/')
   } else {
@@ -176,7 +182,7 @@ function createWindow () {
       preload: path.join(appBaseDir, '/render/preload/tab2.js')
     }
   })
-  if (devMode) {
+  if (devMode && !testMainOnly) {
     // [開發階段]直接與 tab 2 dev server連線
   tab2View.webContents.loadURL('http://localhost:2002/')
   } else {
@@ -288,6 +294,10 @@ app.whenReady().then(() => {
 // explicitly with Cmd + Q.
 app.on('window-all-closed', function () {
   if (!isMacos) app.quit()
+})
+
+app.on('before-quit', () => {
+  global.share.db.closeDB()
 })
 
 logger.log('info', 'app start')
