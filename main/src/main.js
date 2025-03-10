@@ -20,14 +20,6 @@ const start = process.hrtime() // 開始計時
 const { app, BrowserWindow, WebContentsView, dialog, globalShortcut } = require('electron')
 const path = require('path')
 const fs = require('fs')
-const keytar = require('keytar')
-const crypto = require('crypto')
-
-const icon = require('./icon.js')
-
-const i18n = require('i18next')
-const en = require('../asset/i18n/en.json')
-const tw = require('../asset/i18n/zh-TW.json')
 
 const appBaseDir = path.resolve(__dirname, '..')
 
@@ -48,7 +40,6 @@ const userDataDir = app.getPath('userData')
 // 根據env.json檔中的mode判斷要跑在develop或production模式
 const env = JSON.parse(fs.readFileSync(path.join(appBaseDir, 'env.json')))
 const devMode = (env.mode === 'develop')
-const testMainOnly = false
 
 // --logging模組----------------------//
 const initLogger = require('./logging.js')
@@ -61,6 +52,10 @@ logger.log('debug', 'process.versions.chrome:%s', process.versions.chrome)
 logger.log('debug', 'process.versions.electron:%s', process.versions.electron)
 
 // --多語----------------------//
+const i18n = require('i18next')
+const en = require('../asset/i18n/en.json')
+const tw = require('../asset/i18n/zh-TW.json')
+
 logger.log('debug', 'env.language:%s', env.language)
 const resources = {
   'en': {
@@ -80,42 +75,17 @@ i18n.init({
   }
 })
 
+// -------------------------------------//
+
 global.share = {}
 global.share.appBaseDir = appBaseDir
 global.share.userDataDir = userDataDir
 global.share.logger = logger
-global.share.manual = new Set()
-
-// --realm db初始化------------------------//
-const realmUtil = require('./realmUtil.js')
-const initRealmDB = async () => {
-  // 產生realm加密金鑰
-  const SERVICE_NAME = 'TestElectronReact2'
-  const ACCOUNT_NAME = 'realm_encryption_key'
-
-  // 檢查系統安全儲存是否已有金鑰
-  let realmEncryptionKey = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME)
-  if (!realmEncryptionKey) {
-    logger.log('info', '[realm]產生realm加密金鑰')
-    realmEncryptionKey = crypto.randomBytes(64).toString('hex')
-    // 存入系統安全儲存
-    await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, realmEncryptionKey)
-  } else {
-    logger.log('info', '[realm]使用之前產生的realm加密金鑰')
-  }
-  realmEncryptionKey = Buffer.from(realmEncryptionKey, 'hex')
-
-  const db = await realmUtil.RealmDB.build(realmEncryptionKey)
-
-  global.share.db = db
-  global.share.realm = db.realm
-}
-
-initRealmDB()
 
 // -------------------------------------//
 
-const menu = require('./menu.js')
+const testMainOnly = (process.env.testMainOnly === 'true')
+logger.log('debug', 'testMainOnly:%s', testMainOnly)
 
 // 作業系統判斷
 logger.log('debug', 'process.platform:%s', process.platform)
@@ -123,10 +93,18 @@ const isMsWin = (process.platform === 'win32')
 const isMacos = (process.platform === 'darwin')
 
 if (isMsWin) {
+  logger.log('debug', '使用windows環境執行')
+} else if (isMacos) {
+  const macUtil = require('./util/macUtil.js')
+  logger.log('debug', `使用macos(${macUtil.getCPUArchitecture()})環境執行`)
+}
+
+if (isMsWin) {
   // 會影響系統通知顯示
   app.setAppUserModelId('test app')
 }
 
+const icon = require('./icon.js')
 const iconPath = icon.iconPath()
 logger.log('debug', 'iconPath:%s', iconPath)
 
@@ -136,6 +114,7 @@ let tabUIWindow
 let tab1View, tab2View
 
 function createWindow () {
+  const winStart = process.hrtime() // 開始計時
   // Create the browser window. 建立chrome瀏覽器
   logger.log('debug', 'createWindow')
   tabUIWindow = new BrowserWindow({
@@ -168,7 +147,7 @@ function createWindow () {
   })
   if (devMode && !testMainOnly) {
     // [開發階段]直接與 tab 1 dev server連線
-  tab1View.webContents.loadURL('http://localhost:2001/')
+    tab1View.webContents.loadURL('http://localhost:2001/')
   } else {
     // [產品階段]載入 tab 1 編譯後的程式碼
     tab1View.webContents.loadFile('render/tab1/index.html')
@@ -184,7 +163,7 @@ function createWindow () {
   })
   if (devMode && !testMainOnly) {
     // [開發階段]直接與 tab 2 dev server連線
-  tab2View.webContents.loadURL('http://localhost:2002/')
+    tab2View.webContents.loadURL('http://localhost:2002/')
   } else {
     // [產品階段]載入 tab 2 編譯後的程式碼
     tab2View.webContents.loadFile('render/tab2/index.html')
@@ -193,11 +172,11 @@ function createWindow () {
   // Open the DevTools.
   if (devMode) {
     tabUIWindow.webContents.openDevTools({ mode: 'detach', title: 'tabUI' })
+    tab1View.webContents.openDevTools({ mode: 'detach', title: 'tab1' })
+    tab2View.webContents.openDevTools({ mode: 'detach', title: 'tab2' })
   } else {
     // [產品階段]不開啟開發者工具
   }
-  tab1View.webContents.openDevTools({ mode: 'detach', title: 'tab1' })
-  tab2View.webContents.openDevTools({ mode: 'detach', title: 'tab2' })
 
   // 加入 tab1, tab2 到主視窗
   tabUIWindow.contentView.addChildView(tab1View)
@@ -240,6 +219,8 @@ function createWindow () {
   })
 
   tabUIWindow.webContents.on('did-finish-load', function () {
+    const winEnd = process.hrtime(winStart) // 計算經過的時間
+    logger.log('info', `視窗初始化時間: ${winEnd[0]}s ${winEnd[1] / 1e6}ms`)
     logger.log('debug', 'did-finish-load')
     // 預設顯示 tab1
     tab1View.webContents.send('tab-active', true)
@@ -273,6 +254,7 @@ app.whenReady().then(() => {
   createWindow()
 
   // 選單
+  const menu = require('./menu.js')
   menu.createMenu(dialog, isMacos, appBaseDir, devMode)
 
   // macos 關閉程式快捷鍵
@@ -337,7 +319,9 @@ const callesm = async () => {
   logger.log('info', '[esm]metadata.format.codec:%s', metadata.format.codec)
 }
 
-callesm()
+setImmediate(() => {
+  callesm()
+})
 
 const end = process.hrtime(start) // 計算經過的時間
 logger.log('info', `程式初始化時間: ${end[0]}s ${end[1] / 1e6}ms`)

@@ -1,13 +1,10 @@
 const { Menu, shell, Tray, BrowserWindow } = require('electron')
 const path = require('path')
-const i18n = require('i18next')
-const WebSocket = require('ws')
-
-const manual = require('./manual.js')
 
 const logger = global.share.logger
 
 function createMenu (dialog, isMacos, appBaseDir, devMode) {
+  const i18n = require('i18next')
   const menuTemplate = [
     {
       label: i18n.t('menu.menu1Title'),
@@ -43,6 +40,7 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
         {
           label: '[WebSocket]main-to-web message',
           click (item, focusedWindow) {
+            const WebSocket = require('ws')
             // main to web主動訊息
             // [WebSocket]回傳訊息給所有連線的客戶端（廣播）
             global.share.wsServer.clients.forEach(client => {
@@ -122,7 +120,26 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
           label: '使用手冊',
           click (item, focusedWindow) {
             if (focusedWindow) {
+              const manual = require('./modal/manual.js')
               manual.showManual(focusedWindow)
+            }
+          }
+        },
+        {
+          label: '檢視資訊記錄檔',
+          click (item, focusedWindow) {
+            if (focusedWindow) {
+              const logViewer = require('./modal/logViewer.js')
+              logViewer.showLogViewer('info', focusedWindow)
+            }
+          }
+        },
+        {
+          label: '檢視錯誤記錄檔',
+          click (item, focusedWindow) {
+            if (focusedWindow) {
+              const logViewer = require('./modal/logViewer.js')
+              logViewer.showLogViewer('error', focusedWindow)
             }
           }
         }
@@ -142,54 +159,52 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
     )
   }
 
-  if (devMode) {
-    menuTemplate.push({
-      label: '開發工具',
-      submenu: [
-        {
-          label: '[tabUI]開發人員工具',
-          click (item, focusedWindow) {
-            const c = global.share.tabUIWindow.webContents
-            if (c.isDevToolsOpened()) {
-              c.closeDevTools()
-            } else {
-              logger.log('debug', 'openDevTools tabUI')
-              c.openDevTools({ mode: 'detach', title: 'tabUI' })
-            }
-          }
-        },
-        {
-          label: '[tab1]開發人員工具',
-          click (item, focusedWindow) {
-            const c = global.share.tab1View.webContents
-            if (c.isDevToolsOpened()) {
-              c.closeDevTools()
-            } else {
-              logger.log('debug', 'openDevTools tab1')
-              c.openDevTools({ mode: 'detach', title: 'tab1' })
-            }
-          }
-        },
-        {
-          label: '[tab2]開發人員工具',
-          click (item, focusedWindow) {
-            const c = global.share.tab2View.webContents
-            if (c.isDevToolsOpened()) {
-              c.closeDevTools()
-            } else {
-              logger.log('debug', 'openDevTools tab2')
-              c.openDevTools({ mode: 'detach', title: 'tab2' })
-            }
+  menuTemplate.push({
+    label: '開發工具',
+    submenu: [
+      {
+        label: '[tabUI]開發人員工具',
+        click (item, focusedWindow) {
+          const c = global.share.tabUIWindow.webContents
+          if (c.isDevToolsOpened()) {
+            c.closeDevTools()
+          } else {
+            logger.log('debug', 'openDevTools tabUI')
+            c.openDevTools({ mode: 'detach', title: 'tabUI' })
           }
         }
-      ]
-    })
-  }
+      },
+      {
+        label: '[tab1]開發人員工具',
+        click (item, focusedWindow) {
+          const c = global.share.tab1View.webContents
+          if (c.isDevToolsOpened()) {
+            c.closeDevTools()
+          } else {
+            logger.log('debug', 'openDevTools tab1')
+            c.openDevTools({ mode: 'detach', title: 'tab1' })
+          }
+        }
+      },
+      {
+        label: '[tab2]開發人員工具',
+        click (item, focusedWindow) {
+          const c = global.share.tab2View.webContents
+          if (c.isDevToolsOpened()) {
+            c.closeDevTools()
+          } else {
+            logger.log('debug', 'openDevTools tab2')
+            c.openDevTools({ mode: 'detach', title: 'tab2' })
+          }
+        }
+      }
+    ]
+  })
 
   const appMenu = Menu.buildFromTemplate(menuTemplate)
   Menu.setApplicationMenu(appMenu)
 
-  // tray
+  // tray,系統通知區域的小圖標,並可以提供內容選單
   const tray = new Tray(path.join(appBaseDir, 'icon', 'tray-16x16.png'))
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Item1', type: 'radio' },

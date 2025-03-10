@@ -1,7 +1,8 @@
-const winston = require('winston')
 const path = require('path')
 
 function initLogger (devMode, userDataDir) {
+  const winston = require('winston')
+
   const errorLogPath = path.join(userDataDir, 'logs/error.log')
   const infoLogPath = path.join(userDataDir, 'logs/info.log')
 

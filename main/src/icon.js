@@ -15,7 +15,7 @@ function iconPath () {
     // mac, mac要在build後才有圖標,此處無法改變mac圖標
   } else {
     // linux
-    iconPath = path.join(appBaseDir, 'icon', 'app-mac-1024x1024.png')
+    iconPath = path.join(appBaseDir, 'icon', 'app.png')
   }
 
   return iconPath

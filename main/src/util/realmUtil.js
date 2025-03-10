@@ -1,7 +1,3 @@
-const Realm = require('realm')
-
-const schemas = require('./realm/schemas') // 匯入所有 Schema
-
 const logger = global.share.logger
 
 class RealmDB {
@@ -15,6 +11,9 @@ class RealmDB {
   }
 
   static async build (realmEncryptionKey) {
+    const Realm = require('realm')
+    const schemas = require('../realm/schemas') // 匯入所有 Schema
+
     const dbPath = global.share.userDataDir + '/realm/database.realm'
     // logger.log('debug', 'dbPath:%s', dbPath)
     const realm = await Realm.open({

@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron')
 
-const sqliteUtil = require('../sqliteUtil.js')
+const sqliteUtil = require('../util/sqliteUtil.js')
 
 const logger = global.share.logger
 

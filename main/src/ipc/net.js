@@ -1,18 +1,13 @@
 const { ipcMain } = require('electron')
-const axios = require('axios')
-const express = require('express')
-const cors = require('cors')
-const http = require('http')
-const WebSocket = require('ws')
 const path = require('path')
 const fs = require('fs')
-const mime = require('mime-types')
 
 const logger = global.share.logger
 
 ipcMain.handle('callHttpService', async (event, args) => {
   logger.log('debug', 'callHttpService')
   try {
+    const axios = require('axios')
     const response = await axios.get('https://jsonplaceholder.typicode.com/todos/' + args.param)
     return response.data
   } catch (error) {
@@ -20,99 +15,116 @@ ipcMain.handle('callHttpService', async (event, args) => {
   }
 })
 
+// --------------------------------------------- //
 // --在main啟動一個local http server與local websocket server-------------------------- //
 
-const app = express()
-const server = http.createServer(app)
-const wsServer = new WebSocket.Server({ server })
+const initWebServer = () => {
+  const start = process.hrtime() // 開始計時
 
-global.share.wsServer = wsServer
+  const express = require('express')
+  const cors = require('cors')
+  const http = require('http')
+  const WebSocket = require('ws')
+  const mime = require('mime-types')
 
-// 解析 JSON 請求
-app.use(express.json())
+  const app = express()
+  const server = http.createServer(app)
+  const wsServer = new WebSocket.Server({ server })
 
-// cors設定
-const allowedOrigins = ['http://localhost:2001', 'http://localhost:2002']
+  global.share.wsServer = wsServer
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true)
-    } else {
-      callback(new Error('不允許的來源'))
-    }
-  }
-}))
+  // 解析 JSON 請求
+  app.use(express.json())
 
-// express http路由
-// 模擬資料
-const users = [
-  { id: 1, name: 'Alice' },
-  { id: 2, name: 'Bob' }
-]
+  // cors設定
+  const allowedOrigins = ['http://localhost:2001', 'http://localhost:2002']
 
-// 獲取所有使用者
-app.get('/users', (req, res) => {
-  res.json(users)
-})
-
-// 提供圖片資源範例
-app.get('/image/:imageName', (req, res) => {
-  const media = req.params.imageName
-  const imagePath = path.join(global.share.appBaseDir, '/asset/image/', media)
-  res.sendFile(imagePath)
-})
-
-// 提供音檔資源範例
-app.get('/audio/:audioName', (req, res) => {
-  const media = req.params.audioName
-  const type = mime.lookup(media)
-  const mediaPath = path.join(global.share.appBaseDir, '/asset/audio/', media)
-  if (fs.existsSync(mediaPath)) {
-    const mediaSize = fs.statSync(mediaPath).size
-    const range = readRangeHeader(req.headers.range, mediaSize)
-    const start = range.Start
-    const end = range.End
-    logger.log('debug', '%s,start:%s,end:%s', media, start, end)
-    const contentLength = end - start + 1
-    const headers = {
-      'Content-Range': `bytes ${start}-${end}/${mediaSize}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': contentLength,
-      'Content-Type': type
-    }
-    res.writeHead(206, headers)
-    /* 使用stream無法簡單控制檔案關閉時機
-    const stream = fs.createReadStream(mediaPath, {
-      start,
-      end
-    })
-    stream.pipe(res)
-    */
-    fs.readFile(mediaPath, (err, data) => {
-      if (err) {
-        logger.log('error', err)
+  app.use(cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true)
       } else {
-        res.end(data.slice(start, end + 1))
+        callback(new Error('不允許的來源'))
       }
-    })
-  }
-})
+    }
+  }))
 
-// WebSocket 連線
-wsServer.on('connection', (ws) => {
-  logger.log('debug', '[WebSocket]新的客戶端已連線')
+  // express http路由
+  // 模擬資料
+  const users = [
+    { id: 1, name: 'Alice' },
+    { id: 2, name: 'Bob' }
+  ]
 
-  // 接收來自客戶端的訊息
-  ws.on('message', (message) => {
-    logger.log('debug', `[WebSocket]收到客戶端訊息: ${message}`)
+  // 獲取所有使用者
+  app.get('/users', (req, res) => {
+    res.json(users)
   })
-})
 
-// 啟動伺服器
-const PORT = 3000
-server.listen(PORT, () => {
-  logger.log('debug', `Local server is running on http://localhost:${PORT}  ws://localhost:${PORT}`)
+  // 提供圖片資源範例
+  app.get('/image/:imageName', (req, res) => {
+    const media = req.params.imageName
+    const imagePath = path.join(global.share.appBaseDir, '/asset/image/', media)
+    res.sendFile(imagePath)
+  })
+
+  // 提供音檔資源範例
+  app.get('/audio/:audioName', (req, res) => {
+    const media = req.params.audioName
+    const type = mime.lookup(media)
+    const mediaPath = path.join(global.share.appBaseDir, '/asset/audio/', media)
+    if (fs.existsSync(mediaPath)) {
+      const mediaSize = fs.statSync(mediaPath).size
+      const range = readRangeHeader(req.headers.range, mediaSize)
+      const start = range.Start
+      const end = range.End
+      logger.log('debug', '%s,start:%s,end:%s', media, start, end)
+      const contentLength = end - start + 1
+      const headers = {
+        'Content-Range': `bytes ${start}-${end}/${mediaSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': contentLength,
+        'Content-Type': type
+      }
+      res.writeHead(206, headers)
+      /* 使用stream無法簡單控制檔案關閉時機
+      const stream = fs.createReadStream(mediaPath, {
+        start,
+        end
+      })
+      stream.pipe(res)
+      */
+      fs.readFile(mediaPath, (err, data) => {
+        if (err) {
+          logger.log('error', err)
+        } else {
+          res.end(data.slice(start, end + 1))
+        }
+      })
+    }
+  })
+
+  // WebSocket 連線
+  wsServer.on('connection', (ws) => {
+    logger.log('debug', '[WebSocket]新的客戶端已連線')
+
+    // 接收來自客戶端的訊息
+    ws.on('message', (message) => {
+      logger.log('debug', `[WebSocket]收到客戶端訊息: ${message}`)
+    })
+  })
+
+  // 啟動伺服器
+  const PORT = 3000
+  server.listen(PORT, () => {
+    logger.log('debug', `Local server is running on http://localhost:${PORT}  ws://localhost:${PORT}`)
+    const end = process.hrtime(start) // 計算經過的時間
+    logger.log('info', `web server初始化時間: ${end[0]}s ${end[1] / 1e6}ms`)
+  })
+}
+
+setImmediate(() => {
+  initWebServer()
 })
 
 function readRangeHeader (range, totalLength) {
@@ -143,3 +155,4 @@ function readRangeHeader (range, totalLength) {
 
   return result
 }
+// --------------------------------------------- //
