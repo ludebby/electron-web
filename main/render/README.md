@@ -1,0 +1,17 @@
+## 前端程式(畫面包)放置目錄
+
+前端程式負責electron應用的畫面呈現與互動部分
+
+electron會以BrowserWindow或WebContentsView的loadFile方法載入此目錄下程式
+
+前端程式為可在chrome瀏覽器執行之html,css,js程式
+
+簡單的畫面程式可直接使用不需編譯的html+css+js放入此目錄
+
+複雜的畫面程式可以使用reactjs專案方式,將reactjs編譯出之html+css+js放入此目錄
+
+除preload子目錄外,此目錄下每個子目錄即代表一個畫面單位
+
+preload目錄下擺放每個畫面包的preload script
+
+preload script為BrowserWindow或WebContentsView載入畫面程式前會執行的javascript程式,也是於chrome瀏覽器端執行,但可以存取electron物件,初始化electron ipc,為electron主程式與前端程式之間的橋樑
