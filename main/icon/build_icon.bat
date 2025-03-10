@@ -1,1 +1,0 @@
-electron-icon-builder --input=./app-1024x1024.png --output=./ouput
