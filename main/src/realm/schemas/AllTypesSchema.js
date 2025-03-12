@@ -14,7 +14,7 @@ const AllTypesSchema = {
 
     listField: 'int[]', // 陣列/列表（類似 Array 或 List，可包含相同類型的多個值）
     setField: 'string<>', // 集合（確保值唯一）
-    dictField: 'string{}', // 字典（鍵值對存儲）
+    dictField: 'mixed{}', // 字典（鍵值對存儲）
 
     embeddedObject: 'EmbeddedModel?', // 嵌入式物件（適用於父子關聯，子物件不會獨立存在）
     relatedObject: 'AllTypesModel?' // 自關聯

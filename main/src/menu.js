@@ -49,6 +49,20 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
               }
             })
           }
+        },
+        { type: 'separator' },
+        {
+          label: '[redux]測試全域狀態',
+          click (item, focusedWindow) {
+            // 以action改變全域狀態
+            const { userActions } = require('./redux/actions')
+            userActions.setUser({ name: 'Alice1', email: 'alice@example.com', editDate: new Date().toISOString() })
+
+            // 以selector取出全域狀態
+            const { userSelectors, productSelectors } = require('./redux/selectors')
+            console.log('userSelectors', userSelectors.selectUser())
+            console.log('productSelectors', productSelectors.selectProducts())
+          }
         }
       ]
     },

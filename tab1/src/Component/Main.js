@@ -250,7 +250,7 @@ export default class Main extends React.Component {
   render () {
     const envVersionInfo = window.api.getEnvVersionInfo()
     return (
-      <Container style={{ backgroundColor: '#28eff5' }}>
+      <Container fluid style={{ backgroundColor: '#28eff5' }}>
         <Row style={{ padding: '10px' }}>
           <Col>chrome版本:{envVersionInfo.chrome}</Col>
           <Col>electron版本:{envVersionInfo.electron}</Col>

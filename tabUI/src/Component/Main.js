@@ -12,7 +12,7 @@ const TabComponent = () => {
   }
 
   return (
-    <Container>
+    <Container fluid style={{ backgroundColor: '#f5dc28' }}>
       <Tabs activeKey={activeTab} onSelect={handleTabChange}>
         <Tab eventKey='tab1' title='分頁 1'></Tab>
         <Tab eventKey='tab2' title='分頁 2'></Tab>

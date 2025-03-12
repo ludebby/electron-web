@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld(
       const validChannels = ['web-to-main-send-channel', 'main-to-web-send-channel']
       if (validChannels.includes(channel)) {
         // Deliberately strip event as it includes `sender`
+        // 處理來自webContents.send或event.reply的訊息
         ipcRenderer.on(channel, (event, ...args) => func(...args))
       } else {
         console.log('[warn]', 'channel invalid:' + channel)

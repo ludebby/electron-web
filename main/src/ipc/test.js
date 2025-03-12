@@ -4,6 +4,7 @@ const logger = global.share.logger
 
 // electron ipc
 // channel,非同步訊息接收與回應
+// 處理來自ipcRenderer.send的訊息
 ipcMain.on('web-to-main-send-channel', (event, args) => {
   logger.log('info', '[web-to-main-send-channel]Received %s from web', args.msg)
   setTimeout(() => {
@@ -12,6 +13,7 @@ ipcMain.on('web-to-main-send-channel', (event, args) => {
 })
 
 // channel,同步訊息接收與回應
+// 處理來自ipcRenderer.sendSync的訊息
 ipcMain.on('web-to-main-sendSync-channel', (event, args) => {
   logger.log('info', '[web-to-main-sendSync-channel]Received %s from web', args.msg)
   setTimeout(() => {
@@ -20,6 +22,7 @@ ipcMain.on('web-to-main-sendSync-channel', (event, args) => {
 })
 
 // channel,非同步訊息接收與回應
+// 處理來自ipcRenderer.invoke的訊息
 ipcMain.handle('web-to-main-invoke-channel', async (event, args) => {
   logger.log('info', '[web-to-main-invoke-channel]Received %s from web', args.msg)
   await new Promise((resolve) => setTimeout(resolve, args.targetTime))

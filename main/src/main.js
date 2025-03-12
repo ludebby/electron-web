@@ -21,102 +21,165 @@ const { app, BrowserWindow, WebContentsView, dialog, globalShortcut } = require(
 const path = require('path')
 const fs = require('fs')
 
-const appBaseDir = path.resolve(__dirname, '..')
+let logger
+const init = () => {
+  const appBaseDir = path.resolve(__dirname, '..')
+
+  /*
+  正式打包後appBaseDir會是xxx\resources\app.asar這樣的封裝格式
+  electron有調整fs可以將app.asar當作目錄般使用,但是檔案變成唯讀
+  其他第三方函式庫可能不一定支援app.asar操作
+  與開發模式時直接是目錄的情況還是有所差異
+
+  詳細文件
+  https://www.electronjs.org/docs/latest/tutorial/asar-archives
+  */
+
+  // 透過electron取得作業系統使用者資料目錄
+  const userDataDir = app.getPath('userData')
+
+  // 是否為開發模式
+  // 根據env.json檔中的mode判斷要跑在develop或production模式
+  const env = JSON.parse(fs.readFileSync(path.join(appBaseDir, 'env.json')))
+  const devMode = (env.mode === 'develop')
+
+  // --logging模組----------------------//
+  const initLogger = require('./logging.js')
+  logger = initLogger(devMode, userDataDir)
+
+  logger.log('debug', 'env.mode:%s', env.mode)
+
+  logger.log('debug', 'process.type:%s', process.type)
+  logger.log('debug', 'process.versions.chrome:%s', process.versions.chrome)
+  logger.log('debug', 'process.versions.electron:%s', process.versions.electron)
+
+  // -------------------------------------//
+
+  global.share = {}
+  global.share.appBaseDir = appBaseDir
+  global.share.userDataDir = userDataDir
+  global.share.logger = logger
+
+  // -------------------------------------//
+
+  const testMainOnly = (process.env.testMainOnly === 'true')
+  logger.log('debug', 'testMainOnly:%s', testMainOnly)
+
+  // 作業系統判斷
+  logger.log('debug', 'process.platform:%s', process.platform)
+  const isMsWin = (process.platform === 'win32')
+  const isMacos = (process.platform === 'darwin')
+
+  if (isMsWin) {
+    logger.log('debug', '使用windows環境執行')
+  } else if (isMacos) {
+    const macUtil = require('./util/macUtil.js')
+    logger.log('debug', `使用macos(${macUtil.getCPUArchitecture()})環境執行`)
+  }
+
+  if (isMsWin) {
+    // 會影響系統通知顯示
+    app.setAppUserModelId('test app')
+  }
+
+  // This method will be called when Electron has finished
+  // initialization and is ready to create browser windows.
+  // Some APIs can only be used after this event occurs.
+  app.whenReady().then(() => {
+    // 以action改變全域狀態
+    const { userActions, productActions, remoteUserActions } = require('./redux/actions')
+    userActions.setUser({ name: 'Alice', email: 'alice@example.com', editDate: new Date().toISOString() })
+    productActions.addProduct({ id: 1, name: '商品1' })
+
+    // 以selector取出全域狀態
+    const { userSelectors, productSelectors, remoteUserSelectors } = require('./redux/selectors')
+    console.log('userSelectors', userSelectors.selectUser())
+    console.log('productSelectors', productSelectors.selectProducts())
+
+    // redux非同步動作案例(含呼叫網路服務取資料並寫入realm資料庫)
+    const realmInitUtil = require('./util/realmInitUtil.js')
+    realmInitUtil.initRealmDB().then(() => {
+      remoteUserActions.fetchUserAsync(1).then(() => {
+        // 以selector取出全域狀態
+        console.log('remoteUserSelectors', remoteUserSelectors.selectRemoteUser())
+        const realm = global.share.realm
+        // 確認realm db有寫入
+        const user = realm.objectForPrimaryKey('RemoteUser', 1)
+        console.log('realm', user)
+      })
+    })
+
+    createWindow(appBaseDir, devMode, testMainOnly)
+
+    // --多語----------------------//
+    const i18nUtil = require('./util/i18nUtil.js')
+    i18nUtil.initI18n(env.language, logger)
+
+    // 選單
+    const menu = require('./menu.js')
+    menu.createMenu(dialog, isMacos, appBaseDir, devMode)
+
+    // macos 關閉程式快捷鍵
+    if (isMacos) {
+      globalShortcut.register('Command+Q', () => {
+        app.quit()
+      })
+    }
+
+    app.on('activate', function () {
+      // On macOS it's common to re-create a window in the app when the
+      // dock icon is clicked and there are no other windows open.
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  })
+
+  // Quit when all windows are closed, except on macOS. There, it's common
+  // for applications and their menu bar to stay active until the user quits
+  // explicitly with Cmd + Q.
+  app.on('window-all-closed', function () {
+    if (!isMacos) app.quit()
+  })
+
+  app.on('before-quit', () => {
+    global.share.db.closeDB()
+  })
+
+  // --處理來自畫面端的訊息---------------------- //
+
+  require('./ipc/tabUI.js')
+  require('./ipc/sharedState.js')
+  require('./ipc/file.js')
+  require('./ipc/msg.js')
+  require('./ipc/test.js')
+  require('./ipc/net.js')
+  require('./ipc/sqlite.js')
+  require('./ipc/realm.js')
+
+  // ------------------------ //
+}
+
+init()
 
 /*
-正式打包後appBaseDir會是xxx\resources\app.asar這樣的封裝格式
-electron有調整fs可以將app.asar當作目錄般使用,但是檔案變成唯讀
-其他第三方函式庫可能不一定支援app.asar操作
-與開發模式時直接是目錄的情況還是有所差異
-
-詳細文件
-https://www.electronjs.org/docs/latest/tutorial/asar-archives
+JavaScript 是直譯語言，執行時 會從上到下，一行一行解讀並執行
+只要語法正確，無論是函式宣告還是即時執行的程式，都可以穿插
+函式宣告 (Function Declaration) 會被提升（Hoist）到作用域最上層，所以你即使先呼叫，後宣告，仍能執行
+但如果是 函式表達式 (Function Expression) 或 箭頭函式 (Arrow Function)，不會提升，需要先宣告，後使用
 */
-
-// 透過electron取得作業系統使用者資料目錄
-const userDataDir = app.getPath('userData')
-
-// 是否為開發模式
-// 根據env.json檔中的mode判斷要跑在develop或production模式
-const env = JSON.parse(fs.readFileSync(path.join(appBaseDir, 'env.json')))
-const devMode = (env.mode === 'develop')
-
-// --logging模組----------------------//
-const initLogger = require('./logging.js')
-const logger = initLogger(devMode, userDataDir)
-
-logger.log('debug', 'env.mode:%s', env.mode)
-
-logger.log('debug', 'process.type:%s', process.type)
-logger.log('debug', 'process.versions.chrome:%s', process.versions.chrome)
-logger.log('debug', 'process.versions.electron:%s', process.versions.electron)
-
-// --多語----------------------//
-const i18n = require('i18next')
-const en = require('../asset/i18n/en.json')
-const tw = require('../asset/i18n/zh-TW.json')
-
-logger.log('debug', 'env.language:%s', env.language)
-const resources = {
-  'en': {
-    translation: en
-  },
-  'zh-TW': {
-    translation: tw
-  }
-}
-
-i18n.init({
-  resources,
-  lng: env.language, // 預設語言
-  fallbackLng: 'zh-TW', // 如果當前切換的語言沒有對應的翻譯則使用這個語言，
-  interpolation: {
-    escapeValue: false
-  }
-})
-
-// -------------------------------------//
-
-global.share = {}
-global.share.appBaseDir = appBaseDir
-global.share.userDataDir = userDataDir
-global.share.logger = logger
-
-// -------------------------------------//
-
-const testMainOnly = (process.env.testMainOnly === 'true')
-logger.log('debug', 'testMainOnly:%s', testMainOnly)
-
-// 作業系統判斷
-logger.log('debug', 'process.platform:%s', process.platform)
-const isMsWin = (process.platform === 'win32')
-const isMacos = (process.platform === 'darwin')
-
-if (isMsWin) {
-  logger.log('debug', '使用windows環境執行')
-} else if (isMacos) {
-  const macUtil = require('./util/macUtil.js')
-  logger.log('debug', `使用macos(${macUtil.getCPUArchitecture()})環境執行`)
-}
-
-if (isMsWin) {
-  // 會影響系統通知顯示
-  app.setAppUserModelId('test app')
-}
-
-const icon = require('./icon.js')
-const iconPath = icon.iconPath()
-logger.log('debug', 'iconPath:%s', iconPath)
-
-// --Electron初始---------------------- //
+// --electron window---------------------- //
 
 let tabUIWindow
 let tab1View, tab2View
 
-function createWindow () {
+function createWindow (appBaseDir, devMode, testMainOnly) {
   const winStart = process.hrtime() // 開始計時
   // Create the browser window. 建立chrome瀏覽器
   logger.log('debug', 'createWindow')
+
+  const icon = require('./icon.js')
+  const iconPath = icon.iconPath()
+  logger.log('debug', 'iconPath:%s', iconPath)
+
   tabUIWindow = new BrowserWindow({
     width: 800, // 寬度
     height: 650, // 高度
@@ -234,8 +297,13 @@ function createWindow () {
 function updateContentViewSize (activeTab = 'tab1') {
   if (!tabUIWindow || !tab1View || !tab2View) return
 
+  // tab高度
+  const tabHeight = 41.4
+  const scrollbarWidth = 15
+  const heightAdjust = 110
+
   const bounds = tabUIWindow.getBounds()
-  const contentBounds = { x: 0, y: 50, width: bounds.width - 25, height: bounds.height - 150 }
+  const contentBounds = { x: 0, y: tabHeight, width: bounds.width - scrollbarWidth, height: bounds.height - heightAdjust }
 
   if (activeTab === 'tab1') {
     tab1View.setBounds(contentBounds)
@@ -246,54 +314,6 @@ function updateContentViewSize (activeTab = 'tab1') {
   }
 }
 global.share.updateContentViewSize = updateContentViewSize
-
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-  createWindow()
-
-  // 選單
-  const menu = require('./menu.js')
-  menu.createMenu(dialog, isMacos, appBaseDir, devMode)
-
-  // macos 關閉程式快捷鍵
-  if (isMacos) {
-    globalShortcut.register('Command+Q', () => {
-      app.quit()
-    })
-  }
-
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
-
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on('window-all-closed', function () {
-  if (!isMacos) app.quit()
-})
-
-app.on('before-quit', () => {
-  global.share.db.closeDB()
-})
-
-logger.log('info', 'app start')
-
-// --處理來自畫面端的訊息---------------------- //
-
-require('./ipc/tabUI.js')
-require('./ipc/sharedState.js')
-require('./ipc/file.js')
-require('./ipc/msg.js')
-require('./ipc/test.js')
-require('./ipc/net.js')
-require('./ipc/sqlite.js')
-require('./ipc/realm.js')
 
 // ------------------------ //
 /*
@@ -323,5 +343,6 @@ setImmediate(() => {
   callesm()
 })
 
+logger.log('info', 'app start')
 const end = process.hrtime(start) // 計算經過的時間
 logger.log('info', `程式初始化時間: ${end[0]}s ${end[1] / 1e6}ms`)
