@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+	<meta http-equiv="Content-Security-Policy" content="
+	   default-src 'self' 'unsafe-inline';
+	   img-src 'self' data: http://localhost:3000 https://upload.wikimedia.org;
+	   media-src http://localhost:3000;
+     connect-src 
+       http://localhost:2002
+       http://localhost:3000 
+       https://jsonplaceholder.typicode.com
+       ws://localhost:2002
+       ws://localhost:3000;
+	" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>測試應用</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'" />
+    <title>testOpenWindow</title>
+    <script>
+        window.api.onInitData((data) => {
+          document.getElementById('content').textContent = data
+        })
+    </script>
+</head>
+
+<body style="background-color: #9964f6">
+    <div style="-webkit-user-select: none;-webkit-app-region: drag; width: 100%; height: 30px; background: gray;">
+        這裡可以拖曳移動視窗
+    </div>
+    <div style="-webkit-app-region: no-drag;">
+        <div style="float: right;"><button onclick="window.api.closeTestOpenWindow()">關閉視窗</button></div>    
+        測試開啟BrowserWindow
+        <div id="content">Loading...</div>
+    </div>
+</body>
+</html>

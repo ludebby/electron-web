@@ -1,7 +1,7 @@
 const path = require('path')
 const builder = require('electron-builder')
 
-const common = require('./common.js')
+const common = require('./common')
 
 const appBaseDir = path.resolve(__dirname, '..')
 

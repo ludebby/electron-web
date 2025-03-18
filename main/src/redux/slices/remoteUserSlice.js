@@ -31,6 +31,7 @@ fulfilled：非同步操作成功完成時
 rejected：非同步操作失敗時
 */
 
+// 使用 createSlice 定義 reducer 和 actions
 const remoteUserSlice = createSlice({
   name: 'remoteUser',
   initialState: { userInfo: null, loading: false },

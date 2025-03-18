@@ -27,7 +27,7 @@ function showManual (mainWindow) {
     modal = false
   }
 
-  const icon = require('../icon.js')
+  const icon = require('../icon')
   const child = new BrowserWindow({
     parent: parent,
     modal: modal,

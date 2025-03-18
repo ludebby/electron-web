@@ -1,5 +1,6 @@
 const { createSlice } = require('@reduxjs/toolkit')
 
+// 使用 createSlice 定義 reducer 和 actions
 const productSlice = createSlice({
   name: 'product',
   initialState: { items: [] },

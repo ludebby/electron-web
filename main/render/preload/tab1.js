@@ -79,6 +79,12 @@ contextBridge.exposeInMainWorld(
     onTabActive: (func) => {
       ipcRenderer.on('tab-active', (event, ...args) => func(...args))
     },
+    testOpenView: () => {
+      return ipcRenderer.invoke('testOpenView', '')
+    },
+    testOpenWindow: () => {
+      return ipcRenderer.invoke('testOpenWindow', '')
+    },
     setSharedState: (data) => {
       ipcRenderer.send('setSharedState', data)
     },

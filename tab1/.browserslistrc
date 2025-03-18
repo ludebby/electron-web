@@ -1,0 +1,18 @@
+# 描述支援的瀏覽器列表和版本範圍
+# [production] 和 [development] 區段用於針對不同環境指定瀏覽器支援範圍，
+# 並透過環境變數 BROWSERSLIST_ENV 或 NODE_ENV 自動套用相應的設定
+# 生產環境（production），通常要求支援較廣泛的瀏覽器範圍，以涵蓋更多的用戶和瀏覽器版本
+# 開發環境（development），通常只支援最新版本的主流瀏覽器，以提升開發速度並減少不必要的編譯
+[production]
+# 覆蓋全球市占率超過 0.2% 的瀏覽器
+>0.2%
+# 排除不再受支援、已停用的瀏覽器版本
+not dead
+# 排除 Opera Mini 瀏覽器（因為該瀏覽器的功能較受限）
+not op_mini all
+
+[development]
+# 支援最新一個版本的 Chrome、Firefox 和 Safari，這樣編譯流程更快，生成的代碼也較簡單，適合開發時的需求
+last 1 chrome version
+last 1 firefox version
+last 1 safari version

@@ -17,7 +17,7 @@ You can interact with this web content from the main process using the window's 
 
 const start = process.hrtime() // 開始計時
 
-const { app, BrowserWindow, WebContentsView, dialog, globalShortcut } = require('electron')
+const { app, BrowserWindow, WebContentsView, dialog, globalShortcut, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
@@ -44,7 +44,7 @@ const init = () => {
   const devMode = (env.mode === 'develop')
 
   // --logging模組----------------------//
-  const initLogger = require('./logging.js')
+  const initLogger = require('./logging')
   logger = initLogger(devMode, userDataDir)
 
   logger.log('debug', 'env.mode:%s', env.mode)
@@ -73,7 +73,7 @@ const init = () => {
   if (isMsWin) {
     logger.log('debug', '使用windows環境執行')
   } else if (isMacos) {
-    const macUtil = require('./util/macUtil.js')
+    const macUtil = require('./util/macUtil')
     logger.log('debug', `使用macos(${macUtil.getCPUArchitecture()})環境執行`)
   }
 
@@ -86,37 +86,22 @@ const init = () => {
   // initialization and is ready to create browser windows.
   // Some APIs can only be used after this event occurs.
   app.whenReady().then(() => {
-    // 以action改變全域狀態
-    const { userActions, productActions, remoteUserActions } = require('./redux/actions')
-    userActions.setUser({ name: 'Alice', email: 'alice@example.com', editDate: new Date().toISOString() })
-    productActions.addProduct({ id: 1, name: '商品1' })
+    const realmInitUtil = require('./util/realmInitUtil')
+    const expressInitUtil = require('./util/expressInitUtil')
+    // 同時等 Realm 和 Express 初始化完成
+    Promise.all([realmInitUtil.initRealmDB(), expressInitUtil.initWebServer(), callesm()]).then(() => {
+      reduxTest()
 
-    // 以selector取出全域狀態
-    const { userSelectors, productSelectors, remoteUserSelectors } = require('./redux/selectors')
-    console.log('userSelectors', userSelectors.selectUser())
-    console.log('productSelectors', productSelectors.selectProducts())
-
-    // redux非同步動作案例(含呼叫網路服務取資料並寫入realm資料庫)
-    const realmInitUtil = require('./util/realmInitUtil.js')
-    realmInitUtil.initRealmDB().then(() => {
-      remoteUserActions.fetchUserAsync(1).then(() => {
-        // 以selector取出全域狀態
-        console.log('remoteUserSelectors', remoteUserSelectors.selectRemoteUser())
-        const realm = global.share.realm
-        // 確認realm db有寫入
-        const user = realm.objectForPrimaryKey('RemoteUser', 1)
-        console.log('realm', user)
-      })
+      // 建立前端視窗
+      createWindow(appBaseDir, devMode, testMainOnly)
     })
 
-    createWindow(appBaseDir, devMode, testMainOnly)
-
     // --多語----------------------//
-    const i18nUtil = require('./util/i18nUtil.js')
+    const i18nUtil = require('./util/i18nUtil')
     i18nUtil.initI18n(env.language, logger)
 
     // 選單
-    const menu = require('./menu.js')
+    const menu = require('./menu')
     menu.createMenu(dialog, isMacos, appBaseDir, devMode)
 
     // macos 關閉程式快捷鍵
@@ -131,34 +116,69 @@ const init = () => {
       // dock icon is clicked and there are no other windows open.
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
     })
-  })
 
-  // Quit when all windows are closed, except on macOS. There, it's common
-  // for applications and their menu bar to stay active until the user quits
-  // explicitly with Cmd + Q.
-  app.on('window-all-closed', function () {
-    if (!isMacos) app.quit()
-  })
+    // Quit when all windows are closed, except on macOS. There, it's common
+    // for applications and their menu bar to stay active until the user quits
+    // explicitly with Cmd + Q.
+    app.on('window-all-closed', function () {
+      if (!isMacos) app.quit()
+    })
 
-  app.on('before-quit', () => {
-    global.share.db.closeDB()
+    app.on('before-quit', () => {
+      if (global.share.db) {
+        global.share.db.closeDB()
+      }
+    })
   })
 
   // --處理來自畫面端的訊息---------------------- //
 
-  require('./ipc/tabUI.js')
-  require('./ipc/sharedState.js')
-  require('./ipc/file.js')
-  require('./ipc/msg.js')
-  require('./ipc/test.js')
-  require('./ipc/net.js')
-  require('./ipc/sqlite.js')
-  require('./ipc/realm.js')
+  require('./ipc/sharedState')
+  require('./ipc/file')
+  require('./ipc/msg')
+  require('./ipc/test')
+  require('./ipc/net')
+  require('./ipc/sqlite')
+  require('./ipc/realm')
 
   // ------------------------ //
 }
 
 init()
+
+function reduxTest () {
+  // redux測試
+  // 以action改變全域狀態
+  const { userActions, productActions, remoteUserActions, remoteUser2Actions } = require('./redux/actions')
+  userActions.setUser({ name: 'Alice', email: 'alice@example.com', editDate: new Date().toISOString() })
+  productActions.addProduct({ id: 1, name: '商品1' })
+
+  // 以selector取出全域狀態
+  const { userSelectors, productSelectors, remoteUserSelectors, remoteUser2Selectors } = require('./redux/selectors')
+  console.log('redux寫入與讀出測試結果')
+  console.log('userSelectors:', userSelectors.selectUser().name)
+  console.log('productSelectors:', productSelectors.selectProducts().items.length)
+
+  // redux非同步動作案例(含呼叫網路服務取資料並寫入realm資料庫)
+  remoteUserActions.fetchUserAsync(1).then(() => {
+    console.log('redux非同步寫入與讀出測試結果')
+    // 確認redux狀態有寫入
+    console.log('remoteUserSelectors:', remoteUserSelectors.selectRemoteUser().userInfo.name)
+    // 確認realm db有寫入
+    const realm = global.share.realm
+    const user = realm.objectForPrimaryKey('RemoteUser', 1)
+    console.log('realm:', user.name)
+  })
+
+  remoteUser2Actions.fetchUser(2)
+  setTimeout(() => {
+    console.log('redux非同步寫入與讀出測試結果')
+    // 確認redux狀態有寫入
+    if (remoteUser2Selectors.selectRemoteUser2().userInfo) {
+      console.log('remoteUser2Selectors:', remoteUser2Selectors.selectRemoteUser2().userInfo.name)
+    }
+  }, 2000)
+}
 
 /*
 JavaScript 是直譯語言，執行時 會從上到下，一行一行解讀並執行
@@ -168,19 +188,17 @@ JavaScript 是直譯語言，執行時 會從上到下，一行一行解讀並�
 */
 // --electron window---------------------- //
 
-let tabUIWindow
-let tab1View, tab2View
-
 function createWindow (appBaseDir, devMode, testMainOnly) {
+  let winStartFirst = true
   const winStart = process.hrtime() // 開始計時
   // Create the browser window. 建立chrome瀏覽器
   logger.log('debug', 'createWindow')
 
-  const icon = require('./icon.js')
+  const icon = require('./icon')
   const iconPath = icon.iconPath()
   logger.log('debug', 'iconPath:%s', iconPath)
 
-  tabUIWindow = new BrowserWindow({
+  const tabUIWindow = new BrowserWindow({
     width: 800, // 寬度
     height: 650, // 高度
     icon: iconPath,
@@ -201,7 +219,7 @@ function createWindow (appBaseDir, devMode, testMainOnly) {
   // ------------------------------------ //
   // WebContentsView測試
   // 創建 tab1 view
-  tab1View = new WebContentsView({
+  const tab1View = new WebContentsView({
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -217,7 +235,7 @@ function createWindow (appBaseDir, devMode, testMainOnly) {
   }
 
   // 創建 tab2 view
-  tab2View = new WebContentsView({
+  const tab2View = new WebContentsView({
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -249,14 +267,46 @@ function createWindow (appBaseDir, devMode, testMainOnly) {
   global.share.tab1View = tab1View
   global.share.tab2View = tab2View
 
+  // 更新 WebContentsView 的大小與可見性
+  const updateContentViewSize = (activeTab = 'tab1') => {
+    if (!tabUIWindow || !tab1View || !tab2View) return
+
+    // tab高度
+    const tabHeight = 41.4
+    const scrollbarWidth = 15
+    const heightAdjust = 110
+
+    const bounds = tabUIWindow.getBounds()
+    const contentBounds = { x: 0, y: tabHeight, width: bounds.width - scrollbarWidth, height: bounds.height - heightAdjust }
+
+    if (activeTab === 'tab1') {
+      tab1View.setBounds(contentBounds)
+      tab2View.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
+    } else {
+      tab2View.setBounds(contentBounds)
+      tab1View.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content1
+    }
+  }
+
+  // 切換tab顯示,透過更新 WebContentsView 的大小與可見性(ipc)
+  ipcMain.on('switch-tab', (event, tab) => {
+    logger.log('debug', '[switch-tab]switch to %s ', tab)
+    if (tab === 'tab1') {
+      // tab1View.webContents.reload()
+      tab1View.webContents.send('tab-active', true)
+    } else if (tab === 'tab2') {
+      // tab2View.webContents.reload()
+      tab2View.webContents.send('tab-active', true)
+    }
+    updateContentViewSize(tab)
+  })
+
   // 設定初始大小
   updateContentViewSize('tab1') // 預設顯示 tab1
 
   tabUIWindow.on('resize', () => {
     updateContentViewSize() // 確保視窗大小變更時同步更新
   })
-
-  // ------------------------------------ //
 
   // 攔截關閉事件
   tabUIWindow.on('close', (event) => {
@@ -282,8 +332,11 @@ function createWindow (appBaseDir, devMode, testMainOnly) {
   })
 
   tabUIWindow.webContents.on('did-finish-load', function () {
-    const winEnd = process.hrtime(winStart) // 計算經過的時間
-    logger.log('info', `視窗初始化時間: ${winEnd[0]}s ${winEnd[1] / 1e6}ms`)
+    if (winStartFirst) {
+      const winEnd = process.hrtime(winStart) // 計算經過的時間
+      logger.log('info', `視窗初始化時間: ${winEnd[0]}s ${winEnd[1] / 1e6}ms`)
+      winStartFirst = false
+    }
     logger.log('debug', 'did-finish-load')
     // 預設顯示 tab1
     tab1View.webContents.send('tab-active', true)
@@ -291,29 +344,72 @@ function createWindow (appBaseDir, devMode, testMainOnly) {
     tab1View.webContents.send('main-to-web-send-channel', 'main-to-web-send-msg-tab1')
     tab2View.webContents.send('main-to-web-send-channel', 'main-to-web-send-msg-tab2')
   })
+
+  // ----------------------------------------- //
+  // ---測試開啟WebContentsView----------------//
+  initTestOpenView(tabUIWindow, appBaseDir)
+  // ---測試開啟BrowserWindow----------------//
+  initTestOpenWindow(tabUIWindow)
+  // ------------------------------------ //
 }
 
-// 更新 WebContentsView 的大小與可見性
-function updateContentViewSize (activeTab = 'tab1') {
-  if (!tabUIWindow || !tab1View || !tab2View) return
+// 測試開啟WebContentsView
+function initTestOpenView (tabUIWindow, appBaseDir) {
+  const testOpenView = new WebContentsView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(appBaseDir, '/render/preload/testOpenView.js')
+    }
+  })
+  testOpenView.webContents.loadFile('render/testOpenView/index.html')
 
-  // tab高度
-  const tabHeight = 41.4
-  const scrollbarWidth = 15
-  const heightAdjust = 110
+  // testOpenView.webContents.openDevTools({ mode: 'detach', title: 'testOpenView' })
 
-  const bounds = tabUIWindow.getBounds()
-  const contentBounds = { x: 0, y: tabHeight, width: bounds.width - scrollbarWidth, height: bounds.height - heightAdjust }
+  // 加入順序要放到tab後才會顯示在最上層
+  tabUIWindow.contentView.addChildView(testOpenView)
 
-  if (activeTab === 'tab1') {
-    tab1View.setBounds(contentBounds)
-    tab2View.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content2
-  } else {
-    tab2View.setBounds(contentBounds)
-    tab1View.setBounds({ x: 0, y: 0, width: 0, height: 0 }) // 隱藏 content1
+  // 控制此WebContentsView開啟或關閉
+  const controlTestOpenView = (show) => {
+    if (show) {
+      // 顯示
+      const contentBounds = { x: 50, y: 100, width: 300, height: 250 }
+      testOpenView.setBounds(contentBounds)
+      // 模擬傳送初始化資料
+      testOpenView.webContents.send('initData', '開啟時間:' + new Date().toISOString())
+    } else {
+      // 隱藏
+      testOpenView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
+    }
   }
+
+  // 控制此WebContentsView開啟或關閉(ipc)
+  ipcMain.handle('testOpenView', async (event, args) => {
+    logger.log('debug', 'testOpenView')
+    controlTestOpenView(true)
+  })
+
+  ipcMain.handle('closeTestOpenView', async (event, args) => {
+    logger.log('debug', 'closeTestOpenView')
+    controlTestOpenView(false)
+  })
 }
-global.share.updateContentViewSize = updateContentViewSize
+
+// 測試開啟BrowserWindow
+function initTestOpenWindow (tabUIWindow) {
+  ipcMain.handle('testOpenWindow', async (event, args) => {
+    logger.log('debug', 'testOpenWindow')
+    const testOpenWindow = require('./modal/testOpenWindow')
+    testOpenWindow.showWin(tabUIWindow)
+  })
+
+  ipcMain.handle('closeTestOpenWindow', async (event, args) => {
+    logger.log('debug', 'closeTestOpenWindow')
+    for (const item of global.share.testOpenWindow) {
+      item.close()
+    }
+  })
+}
 
 // ------------------------ //
 /*
@@ -338,10 +434,6 @@ const callesm = async () => {
   // Log the parsed metadata
   logger.log('info', '[esm]metadata.format.codec:%s', metadata.format.codec)
 }
-
-setImmediate(() => {
-  callesm()
-})
 
 logger.log('info', 'app start')
 const end = process.hrtime(start) // 計算經過的時間

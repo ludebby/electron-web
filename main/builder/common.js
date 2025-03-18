@@ -29,7 +29,7 @@ async function buildAndCopyWebBuild (appBaseDir) {
 async function buildAndCopyWebBuildPack (appBaseDir, webName) {
   // 定義路徑
   const webPath = path.join(appBaseDir, '..', webName)
-  const webBuildPath = path.join(webPath, 'build')
+  const webBuildPath = path.join(webPath, 'dist')
   const targetPath = path.join(appBaseDir, 'render', webName)
 
   // console.log(webPath)
@@ -106,7 +106,7 @@ async function copyWebBuild (appBaseDir) {
 
 function copyWebBuildPack (appBaseDir, packName) {
   // 各web程式程式包編譯結果
-  const webSource = path.resolve(appBaseDir, '../' + packName + '/build')
+  const webSource = path.resolve(appBaseDir, '../' + packName + '/dist')
   // 複製到main下的web目錄
   const webTarget = path.join(appBaseDir, 'render', packName)
 

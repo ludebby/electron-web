@@ -3,7 +3,7 @@
 const initRealmDB = async () => {
   const keytar = require('keytar')
   const crypto = require('crypto')
-  const realmUtil = require('./realmUtil.js')
+  const realmUtil = require('./realmUtil')
 
   const logger = global.share.logger
 

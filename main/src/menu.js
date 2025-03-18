@@ -63,6 +63,13 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
             console.log('userSelectors', userSelectors.selectUser())
             console.log('productSelectors', productSelectors.selectProducts())
           }
+        },
+        {
+          label: '[redux]檢視全域狀態',
+          click (item, focusedWindow) {
+            const store = require('./redux/store')
+            logger.log('debug', 'store.getState():%s', JSON.stringify(store.getState(), null, 2))
+          }
         }
       ]
     },
@@ -134,26 +141,8 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
           label: '使用手冊',
           click (item, focusedWindow) {
             if (focusedWindow) {
-              const manual = require('./modal/manual.js')
+              const manual = require('./modal/manual')
               manual.showManual(focusedWindow)
-            }
-          }
-        },
-        {
-          label: '檢視資訊記錄檔',
-          click (item, focusedWindow) {
-            if (focusedWindow) {
-              const logViewer = require('./modal/logViewer.js')
-              logViewer.showLogViewer('info', focusedWindow)
-            }
-          }
-        },
-        {
-          label: '檢視錯誤記錄檔',
-          click (item, focusedWindow) {
-            if (focusedWindow) {
-              const logViewer = require('./modal/logViewer.js')
-              logViewer.showLogViewer('error', focusedWindow)
             }
           }
         }
@@ -214,6 +203,32 @@ function createMenu (dialog, isMacos, appBaseDir, devMode) {
       }
     ]
   })
+
+  if (devMode) {
+    menuTemplate.push({
+      label: '記錄檔',
+      submenu: [
+        {
+          label: '檢視資訊記錄檔',
+          click (item, focusedWindow) {
+            if (focusedWindow) {
+              const logViewer = require('./modal/logViewer')
+              logViewer.showLogViewer('info', focusedWindow)
+            }
+          }
+        },
+        {
+          label: '檢視錯誤記錄檔',
+          click (item, focusedWindow) {
+            if (focusedWindow) {
+              const logViewer = require('./modal/logViewer')
+              logViewer.showLogViewer('error', focusedWindow)
+            }
+          }
+        }
+      ]
+    })
+  }
 
   const appMenu = Menu.buildFromTemplate(menuTemplate)
   Menu.setApplicationMenu(appMenu)
